@@ -23,12 +23,14 @@ and two blocks from each transcript into a separate `preview/` subfolder.
 
 Outputs in `outputs/<input-folder-name>/`:
 
-- `<podcast-id>_01_chinese_slow.mp3`: Chinese at -20%.
-- `<podcast-id>_02_vocabulary.mp3`: Chinese term then complete English meaning, both +25%.
-- `<podcast-id>_03_english.mp3`: English at +100%.
-- `<podcast-id>_04_chinese.mp3`: normal Chinese.
 - `<podcast-id>_podcast.mp3`: the combined episode.
 - `manifest.json`: effective settings and output filenames.
+
+The default playback order is slow Chinese (-20%), vocabulary (Chinese term then
+complete English meaning, both +25%), English (+100%), then normal Chinese.
+Numbered section MP3s are saved during generation and deleted after the combined
+episode and manifest are successfully saved. If generation fails, completed
+sections remain available.
 
 Voices default to `zh-CN-XiaoxiaoNeural` and `en-US-AvaMultilingualNeural`.
 Vocabulary preserves order, duplicates, alternative meanings and parentheses;
@@ -86,3 +88,54 @@ python -m unittest discover -s tests -v
 ```
 
 Tests do not contact the speech service. Audio integration tests require FFmpeg.
+
+## Study videos
+
+Install the optional video dependency, then use the separate video command:
+
+```sh
+pip install -e '.[video]'
+python -m podcast_generator.video inputs/places_liverpool --dry-run
+python -m podcast_generator.video inputs/places_liverpool --preview
+python -m podcast_generator.video inputs/places_liverpool
+```
+
+The installed `chinese-podcast-video` command accepts the same arguments.
+Videos contain **only Chinese narration at normal speed (`+0%`)**, using the
+configured Chinese voice. Each 1080p screen shows one Chinese paragraph, its
+English translation, and optional pinyin. Vocabulary matches from `vocab_list.csv`
+are gold throughout their screen; highlights are not a word-by-word karaoke cursor.
+Matching is literal, leftmost and longest first, including repeated occurrences.
+
+Use matching blank-line-separated blocks in both transcripts, including titles
+and headings. For pinyin, add `transcript_pinyin.txt` in the input folder or pass
+`--pinyin PATH` (relative to the working directory). It must have the same block
+count and order. Pinyin is displayed as supplied, not generated or aligned under
+individual characters. Equal block counts cannot detect incorrectly paired
+translations: check their order yourself. Existing transcript markup and omitted
+production-note rules also apply here.
+
+Text wraps and adjusts its size to fit a screen. A block that cannot fit at the
+minimum readable size fails validation with its block number; split it into
+shorter matching blocks in all supplied transcripts. The tool does not guess
+sentence-level translation alignment or truncate text.
+
+Requires FFmpeg with H.264 (`libx264`) and AAC encoding, Pillow, and a Chinese font.
+The tool finds Hiragino Sans GB on macOS, common Noto Sans CJK installations on
+Linux, or Microsoft YaHei on Windows. Use `--font PATH` to select another
+Chinese-capable TTF/OTF/TTC font; ensure it also supports your pinyin tone marks.
+Font metrics and wrapping use [Pillow](https://pillow.readthedocs.io/en/stable/reference/ImageFont.html).
+Dry runs check all blocks, font loading, layout, and FFmpeg presence without
+network access. Rendering requires the same online speech service as podcasts.
+
+Configuration precedence, `--config`, `--output`, and `--cache` match the audio
+command. Audio section order and configured speed are ignored for videos. Normal
+Chinese speech already in the cache is reused. Screen boundaries come from each
+recording's decoded duration, padded by less than one frame (40 ms), so audio and
+video remain aligned without accumulating timing drift.
+
+Outputs are `<topic-key>_video.mp4` and `video_manifest.json`, containing paragraph
+timings, voice, rate, and font. Preview renders the first two blocks in a separate
+`video-preview/` directory. Rendering files and temporary audio are removed;
+reusable speech stays in `.podcast-cache/`. Existing completed videos are replaced
+only after encoding succeeds. Audio podcast files and their manifest are preserved.

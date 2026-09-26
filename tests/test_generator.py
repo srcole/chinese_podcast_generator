@@ -1,4 +1,5 @@
 import asyncio
+import json
 from pathlib import Path
 import shutil
 import sys
@@ -17,8 +18,8 @@ ROOT = Path(__file__).resolve().parents[1]
 class GeneratorTests(unittest.TestCase):
     @unittest.skipUnless(shutil.which('ffmpeg'), 'FFmpeg unavailable')
     def test_vocabulary_last_and_sections_survive_failure(self):
-        for fail_vocabulary in (True, False):
-            with self.subTest(fail_vocabulary=fail_vocabulary), tempfile.TemporaryDirectory() as tmp:
+        for failure in ('vocabulary', 'combined', None):
+            with self.subTest(failure=failure), tempfile.TemporaryDirectory() as tmp:
                 root = Path(tmp)
                 source = root / 'source.wav'
                 with open_wave(source) as stream:
@@ -28,26 +29,39 @@ class GeneratorTests(unittest.TestCase):
                 calls = []
                 async def fake_synthesize(speech, cache):
                     calls.append(speech.text)
-                    if speech.text == 'vocabulary' and fail_vocabulary:
+                    if speech.text == 'vocabulary' and failure == 'vocabulary':
                         raise RuntimeError('vocabulary failed')
                     return source
                 service = SimpleNamespace(list_voices=AsyncMock(return_value=[{'ShortName': 'voice'}]))
                 output = root / 'custom-output'
+                def fake_encode(source, destination):
+                    if source.name == 'podcast.wav' and failure == 'combined':
+                        raise RuntimeError('combined failed')
+                    encode(source, destination)
                 with patch.dict(sys.modules, {'edge_tts': service}), patch(
                     'podcast_generator.audio.synthesize', side_effect=fake_synthesize
+                ), patch(
+                    'podcast_generator.audio.encode', side_effect=fake_encode
                 ), patch('podcast_generator.audio.append_wave', wraps=append_wave) as append:
                     job = generate(plan, load_config([]), output, root / 'cache', 'episode-id')
-                    if fail_vocabulary:
-                        with self.assertRaisesRegex(RuntimeError, 'vocabulary failed'):
+                    if failure:
+                        with self.assertRaisesRegex(RuntimeError, f'{failure} failed'):
                             asyncio.run(job)
                     else:
                         asyncio.run(job)
                         combined_sources = [call.args[1].stem for call in append.call_args_list[-4:]]
                         self.assertEqual(combined_sources, [f'episode-id_{i:02d}_{name}' for i, name in enumerate(names, 1)])
                 self.assertEqual(calls, ['chinese', 'english', 'chinese_slow', 'vocabulary'])
-                for index, name in enumerate(names[1:], 2):
-                    self.assertGreater((output / f'episode-id_{index:02d}_{name}.mp3').stat().st_size, 0)
-                self.assertEqual((output / 'episode-id_podcast.mp3').exists(), not fail_vocabulary)
+                for index, name in enumerate(names, 1):
+                    part = output / f'episode-id_{index:02d}_{name}.mp3'
+                    if failure and not (failure == 'vocabulary' and name == 'vocabulary'):
+                        self.assertGreater(part.stat().st_size, 0)
+                    else:
+                        self.assertFalse(part.exists())
+                self.assertEqual((output / 'episode-id_podcast.mp3').exists(), failure is None)
+                if failure is None:
+                    manifest = json.loads((output / 'manifest.json').read_text())
+                    self.assertEqual(manifest['files'], ['episode-id_podcast.mp3'])
 
     def test_example_plan(self):
         config = load_config([ROOT / 'podcast.toml'])

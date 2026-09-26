@@ -9,8 +9,12 @@ description = "Generate bilingual study podcasts from a folder of transcripts an
 requires-python = ">=3.11"
 dependencies = ["edge-tts>=7.2.0,<8"]
 
+[project.optional-dependencies]
+video = ["Pillow>=10,<13"]
+
 [project.scripts]
 chinese-podcast = "podcast_generator.cli:main"
+chinese-podcast-video = "podcast_generator.video:main"
 
 [tool.setuptools.packages.find]
 include = ["podcast_generator*"]

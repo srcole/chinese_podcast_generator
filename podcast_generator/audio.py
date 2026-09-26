@@ -120,5 +120,8 @@ async def generate(plan, config: dict, output: Path, cache: Path, podcast_id: st
         encode(combined, combined_mp3)
         combined_mp3.replace(output / combined_mp3.name)
         manifest = work / "manifest.json"
-        manifest.write_text(json.dumps({"settings": config, "files": [deliverables[name] for name, _ in plan] + [combined_mp3.name]}, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+        manifest.write_text(json.dumps({"settings": config, "files": [combined_mp3.name]}, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
         manifest.replace(output / manifest.name)
+        # Keep completed sections on failure; remove them only after publishing the episode.
+        for filename in deliverables.values():
+            (output / filename).unlink()
