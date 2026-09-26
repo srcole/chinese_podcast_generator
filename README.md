@@ -23,17 +23,17 @@ and two blocks from each transcript into a separate `preview/` subfolder.
 
 Outputs in `outputs/<input-folder-name>/`:
 
-- `<podcast-id>_01_vocabulary.mp3`: Chinese term then complete English meaning, both +25%.
-- `<podcast-id>_02_chinese.mp3`: normal Chinese.
+- `<podcast-id>_01_chinese_slow.mp3`: Chinese at -20%.
+- `<podcast-id>_02_vocabulary.mp3`: Chinese term then complete English meaning, both +25%.
 - `<podcast-id>_03_english.mp3`: English at +100%.
-- `<podcast-id>_04_chinese_slow.mp3`: Chinese at -20%.
+- `<podcast-id>_04_chinese.mp3`: normal Chinese.
 - `<podcast-id>_podcast.mp3`: the combined episode.
 - `manifest.json`: effective settings and output filenames.
 
 Voices default to `zh-CN-XiaoxiaoNeural` and `en-US-AvaMultilingualNeural`.
 Vocabulary preserves order, duplicates, alternative meanings and parentheses;
-pinyin and timestamps are ignored. Added pauses are 0.3 seconds between term and
-meaning, 0.6 seconds between entries, and 3 seconds between major sections.
+pinyin and timestamps are ignored. Added pauses are 0.05 seconds between term and
+meaning, 0.5 seconds between entries, and 1.5 seconds between major sections.
 These are additional to the voice's natural pauses. No extra announcements are
 inserted. Titles and headings are spoken; production notes are omitted.
 
@@ -73,7 +73,7 @@ substitution. Use `edge-tts --list-voices` to inspect available voices.
 Audio is assembled in mono PCM and encoded to 128 kbps MP3. Combined audio is
 built from PCM, avoiding another encode of section MP3s. Each section is published immediately after it completes. Transcript recordings
 are generated before vocabulary, so they remain accessible if vocabulary synthesis
-fails. Combined playback order still follows `podcast.sections` (vocabulary first
+fails. Combined playback order still follows `podcast.sections` (slow Chinese, vocabulary, English, then Chinese
 by default). Each MP3 filename starts with the input folder name, even when using
 `--output` or `--preview`. Reruns replace matching filenames; obsolete files from
 changed section orders are not automatically removed. Do not run concurrent jobs

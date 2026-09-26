@@ -52,13 +52,13 @@ class GeneratorTests(unittest.TestCase):
     def test_example_plan(self):
         config = load_config([ROOT / 'podcast.toml'])
         plan = build_plan(ROOT / 'inputs/20260921_1_tech_week', config)
-        self.assertEqual([name for name, _ in plan], ['vocabulary', 'chinese', 'english', 'chinese_slow'])
-        self.assertEqual(plan[0][1][:4], [
-            Speech('科技乱炖', 'zh-CN-XiaoxiaoNeural', '+25%'), Silence(0.3),
-            Speech('Tech Stew (podcast name)', 'en-US-AvaMultilingualNeural', '+25%'), Silence(0.6)])
-        self.assertEqual(sum(isinstance(s, Speech) and s.text == '量产' for s in plan[0][1]), 2)
+        self.assertEqual([name for name, _ in plan], ['chinese_slow', 'vocabulary', 'english', 'chinese'])
+        self.assertEqual(plan[1][1][:4], [
+            Speech('科技乱炖', 'zh-CN-XiaoxiaoNeural', '+25%'), Silence(0.05),
+            Speech('Tech Stew (podcast name)', 'en-US-AvaMultilingualNeural', '+25%'), Silence(0.5)])
+        self.assertEqual(sum(isinstance(s, Speech) and s.text == '量产' for s in plan[1][1]), 2)
         self.assertTrue(all(s.rate == '+100%' for s in plan[2][1]))
-        self.assertTrue(all(s.rate == '-20%' for s in plan[3][1]))
+        self.assertTrue(all(s.rate == '-20%' for s in plan[0][1]))
 
     def test_notes_and_headings(self):
         with tempfile.TemporaryDirectory() as tmp:

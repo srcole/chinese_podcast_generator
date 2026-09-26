@@ -12,10 +12,10 @@ import tomllib
 DEFAULTS = {
     "voices": {"chinese": "zh-CN-XiaoxiaoNeural", "english": "en-US-AvaMultilingualNeural"},
     "rates": {"vocabulary": "+25%", "chinese": "+0%", "english": "+100%", "chinese_slow": "-20%"},
-    "pauses": {"term_to_meaning": 0.3, "between_entries": 0.6, "between_sections": 3.0},
+    "pauses": {"term_to_meaning": 0.05, "between_entries": 0.5, "between_sections": 1.5},
     "inputs": {"vocabulary": "vocab_list.csv", "chinese": "transcript.txt", "english": "transcript_english.txt"},
     "podcast": {
-        "sections": ["vocabulary", "chinese", "english", "chinese_slow"],
+        "sections": ["chinese_slow", "vocabulary", "english", "chinese"],
         "omit_lines": [r"约\s*\d+\s*分钟播客单口文字稿", r"A roughly \d+-minute solo podcast script"],
     },
 }
