@@ -32,7 +32,8 @@ def main() -> None:
         config = load_config(paths)
         plan = build_plan(folder, config)
         if args.preview:
-            plan = [(name, items[:7] if name == "vocabulary" else items[:2]) for name, items in plan]
+            limits = {"vocabulary": 7, "interleaved": 4}
+            plan = [(name, items[:limits.get(name, 2)]) for name, items in plan]
         output = args.output or Path("outputs") / folder.name
         if args.preview:
             output = output / "preview"

@@ -19,15 +19,20 @@ python -m podcast_generator inputs/20260921_1_tech_week
 
 The installed `chinese-podcast` command accepts the same arguments. Dry runs
 validate resources without network access. Preview renders two vocabulary entries
-and two blocks from each transcript into a separate `preview/` subfolder.
+and two transcript blocks (two complete line pairs for interleaved narration)
+into a separate `preview/` subfolder.
 
 Outputs in `outputs/<input-folder-name>/`:
 
 - `<podcast-id>_podcast.mp3`: the combined episode.
 - `manifest.json`: effective settings and output filenames.
 
-The default playback order is slow Chinese (-20%), vocabulary (Chinese term then
-complete English meaning, both +25%), English (+100%), then normal Chinese.
+The default playback order is slow Chinese (-20%), vocabulary (complete English
+meaning at +100%, then Chinese term at +0%), then interleaved narration:
+English line 1 (+100%), Chinese line 1 (+0%), English line 2, Chinese line 2,
+and so on through both transcripts.
+Vocabulary uses `rates.english` and `rates.chinese`; the old shared
+`rates.vocabulary` setting is accepted for compatibility but no longer used.
 Numbered section MP3s are saved during generation and deleted after the combined
 episode and manifest are successfully saved. If generation fails, completed
 sections remain available.
@@ -58,7 +63,15 @@ resource folder's `podcast.toml`. Input filenames resolve against the resource
 folder. `--output PATH` and `--cache PATH` change output and cache directories;
 these paths resolve against the current working directory.
 
-`podcast.sections` can reorder or omit the four supported sections.
+`podcast.sections` defaults to `["chinese_slow", "vocabulary", "interleaved"]`.
+It can reorder or omit sections; separate `english` and `chinese` sections
+remain available when explicitly configured.
+The `interleaved` section pairs nonempty spoken lines, including headings,
+after removing production notes and markup. Both transcripts must have the same
+number of lines in matching translation order; mismatches fail before synthesis.
+A paragraph written on one line is spoken as one unit. Lines are not automatically
+split into sentences or translated. Interleaved narration uses `rates.english`
+and `rates.chinese` and the corresponding configured voices.
 `podcast.omit_lines` is a list of regular expressions matching entire production
 note lines; an override replaces that list. Plain text and the example's Markdown
 headings, bold, links and separators are supported, not arbitrary Markdown.
@@ -75,7 +88,7 @@ substitution. Use `edge-tts --list-voices` to inspect available voices.
 Audio is assembled in mono PCM and encoded to 128 kbps MP3. Combined audio is
 built from PCM, avoiding another encode of section MP3s. Each section is published immediately after it completes. Transcript recordings
 are generated before vocabulary, so they remain accessible if vocabulary synthesis
-fails. Combined playback order still follows `podcast.sections` (slow Chinese, vocabulary, English, then Chinese
+fails. Combined playback order still follows `podcast.sections` (slow Chinese, vocabulary, then interleaved English/Chinese
 by default). Each MP3 filename starts with the input folder name, even when using
 `--output` or `--preview`. Reruns replace matching filenames; obsolete files from
 changed section orders are not automatically removed. Do not run concurrent jobs

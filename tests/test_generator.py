@@ -66,13 +66,56 @@ class GeneratorTests(unittest.TestCase):
     def test_example_plan(self):
         config = load_config([ROOT / 'podcast.toml'])
         plan = build_plan(ROOT / 'inputs/20260921_1_tech_week', config)
-        self.assertEqual([name for name, _ in plan], ['chinese_slow', 'vocabulary', 'english', 'chinese'])
+        self.assertEqual([name for name, _ in plan], ['chinese_slow', 'vocabulary', 'interleaved'])
         self.assertEqual(plan[1][1][:4], [
-            Speech('科技乱炖', 'zh-CN-XiaoxiaoNeural', '+25%'), Silence(0.05),
-            Speech('Tech Stew (podcast name)', 'en-US-AvaMultilingualNeural', '+25%'), Silence(0.5)])
+            Speech('Tech Stew (podcast name)', 'en-US-AvaMultilingualNeural', '+100%'), Silence(0.05),
+            Speech('科技乱炖', 'zh-CN-XiaoxiaoNeural', '+0%'), Silence(0.5)])
         self.assertEqual(sum(isinstance(s, Speech) and s.text == '量产' for s in plan[1][1]), 2)
-        self.assertTrue(all(s.rate == '+100%' for s in plan[2][1]))
+        english = read_transcript(ROOT / 'inputs/20260921_1_tech_week/transcript_english.txt', config['podcast']['omit_lines'])
+        chinese = read_transcript(ROOT / 'inputs/20260921_1_tech_week/transcript.txt', config['podcast']['omit_lines'])
+        self.assertEqual(plan[2][1], [speech for en, zh in zip(english, chinese) for speech in (
+            Speech(en, config['voices']['english'], '+100%'),
+            Speech(zh, config['voices']['chinese'], '+0%'))])
         self.assertTrue(all(s.rate == '-20%' for s in plan[0][1]))
+
+    def test_interleaved_lines_alignment_and_overrides(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            folder = Path(tmp)
+            (folder / 'podcast.toml').write_text(
+                '[podcast]\nsections = ["interleaved"]\n'
+                '[rates]\nenglish = "+50%"\nchinese = "-10%"\n'
+                '[voices]\nenglish = "en-voice"\nchinese = "zh-voice"\n')
+            config = load_config([folder / 'podcast.toml'])
+            (folder / 'transcript_english.txt').write_text(
+                '# Title\n\nA roughly 20-minute solo podcast script\n\n---\nFirst.\nSecond.\n')
+            (folder / 'transcript.txt').write_text('# 标题\n\n第一句。\n第二句。\n')
+            self.assertEqual(build_plan(folder, config), [('interleaved', [
+                Speech('Title', 'en-voice', '+50%'), Speech('标题', 'zh-voice', '-10%'),
+                Speech('First.', 'en-voice', '+50%'), Speech('第一句。', 'zh-voice', '-10%'),
+                Speech('Second.', 'en-voice', '+50%'), Speech('第二句。', 'zh-voice', '-10%'),
+            ])])
+            (folder / 'transcript.txt').write_text('只有一句。\n')
+            with self.assertRaisesRegex(ValueError, 'matching nonempty spoken lines'):
+                build_plan(folder, config)
+            # Explicit separate sections remain supported for older configurations.
+            (folder / 'podcast.toml').write_text('[podcast]\nsections = ["english", "chinese"]\n')
+            self.assertEqual([name for name, _ in build_plan(folder, load_config([folder / 'podcast.toml']))],
+                             ['english', 'chinese'])
+
+    def test_interleaved_preview_keeps_two_complete_pairs(self):
+        from podcast_generator.cli import main
+        with tempfile.TemporaryDirectory() as tmp:
+            folder = Path(tmp)
+            (folder / 'podcast.toml').write_text('[podcast]\nsections = ["interleaved"]\n')
+            (folder / 'transcript.txt').write_text('一\n二\n三\n')
+            (folder / 'transcript_english.txt').write_text('One\nTwo\nThree\n')
+            with patch.object(sys, 'argv', ['podcast', str(folder), '--preview']), \
+                 patch('podcast_generator.audio.generate', new_callable=AsyncMock) as render, \
+                 patch('podcast_generator.cli.shutil.which', return_value='/bin/ffmpeg'), \
+                 patch('builtins.print'):
+                main()
+            items = render.call_args.args[0][0][1]
+            self.assertEqual([s.text for s in items], ['One', '一', 'Two', '二'])
 
     def test_notes_and_headings(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -97,6 +140,9 @@ class GeneratorTests(unittest.TestCase):
             config = load_config([ROOT / 'podcast.toml', path])
             self.assertEqual(config['rates']['english'], '+50%')
             self.assertEqual(config['rates']['vocabulary'], '+25%')
+            vocabulary = dict(build_plan(ROOT / 'inputs/20260921_1_tech_week', config))['vocabulary']
+            self.assertEqual(vocabulary[0].rate, '+50%')
+            self.assertEqual(vocabulary[2].rate, '+0%')
             for invalid in ['[rates]\nenglish = "-100%"', '[pauses]\nbetween_entries = -1', '[rates]\nenglis = "+5%"']:
                 path.write_text(invalid)
                 with self.assertRaises(ValueError):

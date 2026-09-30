@@ -11,14 +11,18 @@ import tomllib
 
 DEFAULTS = {
     "voices": {"chinese": "zh-CN-XiaoxiaoNeural", "english": "en-US-AvaMultilingualNeural"},
+    # Keep the legacy vocabulary key accepted for older episode configs. Vocabulary
+    # speech now uses the corresponding language rate instead.
     "rates": {"vocabulary": "+25%", "chinese": "+0%", "english": "+100%", "chinese_slow": "-20%"},
     "pauses": {"term_to_meaning": 0.05, "between_entries": 0.5, "between_sections": 1.5},
     "inputs": {"vocabulary": "vocab_list.csv", "chinese": "transcript.txt", "english": "transcript_english.txt"},
     "podcast": {
-        "sections": ["chinese_slow", "vocabulary", "english", "chinese"],
+        "sections": ["chinese_slow", "vocabulary", "interleaved"],
         "omit_lines": [r"约\s*\d+\s*分钟播客单口文字稿", r"A roughly \d+-minute solo podcast script"],
     },
 }
+
+SUPPORTED_SECTIONS = {"chinese_slow", "vocabulary", "interleaved", "english", "chinese"}
 
 
 def load_config(paths: list[Path]) -> dict:
@@ -45,7 +49,7 @@ def load_config(paths: list[Path]) -> dict:
                 raise ValueError(f"{table}.{name} must be a nonempty string")
     sections = config["podcast"]["sections"]
     if not isinstance(sections, list) or not sections or any(
-        not isinstance(s, str) or s not in DEFAULTS["podcast"]["sections"] for s in sections
+        not isinstance(s, str) or s not in SUPPORTED_SECTIONS for s in sections
     ) or len(set(sections)) != len(sections):
         raise ValueError("podcast.sections must be a nonempty list of unique supported sections")
     patterns = config["podcast"]["omit_lines"]
@@ -116,9 +120,30 @@ def build_plan(folder: Path, config: dict) -> list[tuple[str, list[Speech | Sile
                 if index:
                     items.append(Silence(config["pauses"]["between_entries"]))
                 items.extend([
-                    Speech(chinese, config["voices"]["chinese"], config["rates"][section]),
+                    Speech(english, config["voices"]["english"], config["rates"]["english"]),
                     Silence(config["pauses"]["term_to_meaning"]),
-                    Speech(english, config["voices"]["english"], config["rates"][section]),
+                    Speech(chinese, config["voices"]["chinese"], config["rates"]["chinese"]),
+                ])
+        elif section == "interleaved":
+            lines = {}
+            for language in ("english", "chinese"):
+                path = folder / config["inputs"][language]
+                lines[language] = [
+                    line.strip()
+                    for paragraph in read_transcript(path, config["podcast"]["omit_lines"])
+                    for line in paragraph.splitlines() if line.strip()
+                ]
+            if len(lines["english"]) != len(lines["chinese"]):
+                raise ValueError(
+                    f"{folder}: interleaved narration requires matching nonempty spoken lines "
+                    f"in {config['inputs']['english']} ({len(lines['english'])}) and "
+                    f"{config['inputs']['chinese']} ({len(lines['chinese'])}); "
+                    "align the translations line by line, including headings"
+                )
+            for english, chinese in zip(lines["english"], lines["chinese"]):
+                items.extend([
+                    Speech(english, config["voices"]["english"], config["rates"]["english"]),
+                    Speech(chinese, config["voices"]["chinese"], config["rates"]["chinese"]),
                 ])
         else:
             language = "english" if section == "english" else "chinese"
