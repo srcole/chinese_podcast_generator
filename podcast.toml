@@ -1,14 +1,14 @@
 [voices]
 chinese = "zh-CN-XiaoxiaoNeural"
-english = "en-US-AvaMultilingualNeural"
+english = "en-US-ChristopherNeural"
 
 [rates]
 chinese = "+0%"
-english = "+100%"
+english = "+80%"
 chinese_slow = "-20%"
 
 [pauses]
-term_to_meaning = 0.05
+term_to_meaning = 0.01
 between_entries = 0.5
 between_sections = 1.5
 
@@ -18,6 +18,6 @@ chinese = "transcript.txt"
 english = "transcript_english.txt"
 
 [podcast]
-sections = ["chinese_slow", "vocabulary", "interleaved"]
+sections = ["vocabulary", "interleaved", "chinese_slow"]
 # These are regular expressions matching entire production-note lines.
 omit_lines = ['约\s*\d+\s*分钟播客单口文字稿', 'A roughly \d+-minute solo podcast script']
